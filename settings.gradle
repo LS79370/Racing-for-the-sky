@@ -1,0 +1,2 @@
+rootProject.name = "Racing for the sky"
+include ':app'
