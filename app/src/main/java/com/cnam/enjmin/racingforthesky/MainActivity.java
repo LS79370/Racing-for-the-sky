@@ -33,6 +33,7 @@ import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.cnam.enjmin.racingforthesky.utils.PythonLinker;
 import com.google.android.gms.vision.CameraSource;
 import com.google.android.gms.vision.Detector;
 import com.google.android.gms.vision.Frame;
@@ -81,6 +82,10 @@ public class MainActivity extends Activity {
     protected int mDownThreshold = -4;
     protected int mLeftThreshold = 6;
     protected int mRightThreshold = -6;
+
+    public static String IP = "192.168.43.67";
+    public static int PORT = 8090;
+    public static String REQUEST = "n";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -155,7 +160,7 @@ public class MainActivity extends Activity {
 
     private void getPermissions() {
         String TAG = "getPermissions";
-        if (DBG) Log.v(TAG, "in getPermissions()");
+        //if (DBG) Log.v(TAG, "in getPermissions()");
         if (Build.VERSION.SDK_INT >= 23) {            // need to ask at runtime as of Android 6.0
             String sPermissions[] = new String[2];    // space for possible permission strings
             int nPermissions = 0;    // count of permissions to be asked for
@@ -165,12 +170,14 @@ public class MainActivity extends Activity {
                 else sPermissions[nPermissions++] = Manifest.permission.CAMERA;
             }
             if (nPermissions > 0) {
-                if (DBG) Log.d(TAG, "Need to ask for " + nPermissions + " permissions");
+                //if (DBG) Log.d(TAG, "Need to ask for " + nPermissions + " permissions");
                 if (nPermissions < sPermissions.length)
                     sPermissions = Arrays.copyOf(sPermissions, nPermissions);
                 if (DBG) {
                     for (String sPermission : sPermissions)
-                        Log.w(TAG, sPermission);    // debugging only
+                    {
+                        //Log.w(TAG, sPermission);    // debugging only
+                    }
                 }
                 requestPermissions(sPermissions, REQ_PERMISSION_THISAPP);    // start the process
             }
@@ -186,16 +193,16 @@ public class MainActivity extends Activity {
     // overrides method in android.app.Activity
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         String TAG = "onRequestPermitResult";
-        if (DBG) Log.w(TAG, "in onRequestPermissionsResult(...) (" + requestCode + ")");
+        //if (DBG) Log.w(TAG, "in onRequestPermissionsResult(...) (" + requestCode + ")");
         if (requestCode != REQ_PERMISSION_THISAPP) {    // check that this is a response to our request
-            Log.e(TAG, "Unexpected requestCode " + requestCode);    // can this happen?
+            //Log.e(TAG, "Unexpected requestCode " + requestCode);    // can this happen?
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
             return;
         }
         int n = grantResults.length;
-        if (DBG) Log.w(TAG, "requestCode=" + requestCode + " for " + n + " permissions");
+        //if (DBG) Log.w(TAG, "requestCode=" + requestCode + " for " + n + " permissions");
         for (int i = 0; i < n; i++) {
-            if (DBG) Log.w(TAG, "permission " + permissions[i] + " " + grantResults[i]);
+            //if (DBG) Log.w(TAG, "permission " + permissions[i] + " " + grantResults[i]);
             switch (permissions[i]) {
                 case Manifest.permission.CAMERA:
                     if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
@@ -205,7 +212,7 @@ public class MainActivity extends Activity {
                     } else {
                         bUseCameraFlag = false;
                         String str = "You must grant CAMERA permission to use the camera!";
-                        Log.e(TAG, str);
+                        //Log.d(TAG, str);
                     }
                     break;
             }
@@ -393,18 +400,33 @@ public class MainActivity extends Activity {
             }
             if (mEyeBitmap != null)
             {
-                Paint paint = new Paint();
-                paint.setColor(Color.GREEN);
-                paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(5);
-                paint.setTextSize(60);
                 int x_gaze = iris_pixel%mEyeBitmap.getWidth() - mEyeBitmap.getWidth()/2;
                 int y_gaze = mEyeBitmap.getHeight()/2 - iris_pixel/mEyeBitmap.getWidth();
-                if (x_gaze < mRightThreshold) { canvas.drawText("Right", 400, 200, paint); }
-                if (x_gaze > mLeftThreshold) { canvas.drawText("Left", 400, 200, paint); }
-                if (y_gaze > mUpThreshold) { canvas.drawText("Up", 400, 400, paint); }
-                if (y_gaze < mDownThreshold) { canvas.drawText("Down", 400, 400, paint); }
+
                 Log.d("Eyes Gaze", "X : " + x_gaze + ", Y : " + y_gaze);
+
+                if(x_gaze < mRightThreshold)
+                {
+                    REQUEST = "r";
+                    Log.d("Eye Tracking", "Right");
+                }
+                if (x_gaze > mLeftThreshold)
+                {
+                    REQUEST = "l";
+                    Log.d("Eye Tracking", "Left");
+                }
+                if (y_gaze > mUpThreshold)
+                {
+                    REQUEST = "u";
+                    Log.d("Eye Tracking", "Up");
+                }
+                if (y_gaze < mDownThreshold)
+                {
+                    REQUEST = "d";
+                    Log.d("Eye Tracking", "Down");
+                }
+                PythonLinker linker = new PythonLinker();
+                linker.execute();
             }
         }
 
@@ -413,12 +435,12 @@ public class MainActivity extends Activity {
             // Calculate gradients.
             // Ignore edges of image to not deal with boundaries.
 
-            Log.e("CalculateEyeCenter", "Well it entered");
+            //Log.d("CalculateEyeCenter", "Well it entered");
             int imageWidth = eyeMap.getWidth();
             int imageHeight = eyeMap.getHeight();
             int grayData[] = new int[imageWidth*imageHeight];
             double mags[] = new double[(imageWidth-2)*(imageHeight-2)];
-            Log.e("CalculateEyeCenter", "Size is : " + imageWidth*imageHeight);
+            //Log.d("CalculateEyeCenter", "Size is : " + imageWidth*imageHeight);
             eyeMap.getPixels(grayData, 0, imageWidth, 0, 0, imageWidth, imageHeight);
             double[][] gradients = new double[(imageWidth-2)*(imageHeight-2)][2];
             int k = 0;
@@ -444,9 +466,7 @@ public class MainActivity extends Activity {
                     k++;
                 }
             }
-            Log.e("CalculateEyeCenter", "mags above threshold: " + magCount);
-            Log.e("CalculateEyeCenter", "Now we need to iterate through them all again");
-            // For all potential centers
+
             int c_n = gradients.length/2;
             double max_c = 0;
             for (int i=1; i < imageWidth-1; i++) {
