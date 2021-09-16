@@ -51,6 +51,7 @@ import java.util.List;
 
 import static android.graphics.Bitmap.createBitmap;
 import static android.graphics.Bitmap.createScaledBitmap;
+import static java.lang.Math.abs;
 
 public class MainActivity extends Activity {
 
@@ -66,9 +67,7 @@ public class MainActivity extends Activity {
     protected CameraSourcePreview mPreview;
     protected GraphicOverlay mGraphicOverlay;
 
-    protected boolean DEBUG_MODE =
-            true;
-//            false;
+    protected boolean DEBUG_MODE = true;
     protected int eyeRegionWidth = 80;
     protected int eyeRegionHeight = 60;
     protected int mDownSampleScale = 2;
@@ -315,7 +314,6 @@ public class MainActivity extends Activity {
             mBoxPaint.setStrokeWidth(BOX_STROKE_WIDTH);
         }
 
-
         /**
          * Updates the face instance from the detection of the most recent frame.  Invalidates the
          * relevant portions of the overlay to trigger a redraw.
@@ -329,64 +327,20 @@ public class MainActivity extends Activity {
          * Draws the face annotations for position on the supplied canvas.
          */
         @Override
-        public void draw(Canvas canvas) {
+        public void draw(Canvas canvas)
+        {
             Face face = mFace;
-            if (face == null) {
+            if (face == null)
+            {
                 return;
             }
 
-
-            // Draws a circle at the position of the detected face, with the face's track id below.
             float x = translateX(face.getPosition().x + face.getWidth() / 2);
             float y = translateY(face.getPosition().y + face.getHeight() / 2);
 
-            // Draws a bounding box around the face.
-            float xOffset = scaleX(face.getWidth() / 2.0f);
-            float yOffset = scaleY(face.getHeight() / 2.0f);
-            float left = x - xOffset;
-            float top = y - yOffset;
-            float right = x + xOffset;
-            float bottom = y + yOffset;
-//            canvas.drawRect(left, top, right, bottom, mBoxPaint);
-//            canvas.drawCircle(x,y,5,mBoxPaint);
 
-//            canvas.drawBitmap(mBitmap, left, top, null);
-
-            for (Landmark landmark : face.getLandmarks()) {
-                int landmark_type = landmark.getType();
-//                if (landmark_type == Landmark.LEFT_EYE || landmark_type == Landmark.RIGHT_EYE) {
-                if (landmark_type == Landmark.LEFT_EYE) {
-                    cx = (int) translateX(landmark.getPosition().x);
-                    cy = (int) translateY(landmark.getPosition().y);
-                    Paint paint = new Paint();
-                    paint.setColor(Color.GREEN);
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setStrokeWidth(5);
-
-                    // TODO(fyordan): These numbers are arbitray, probably should be proportional to face dimensions.
-//                    canvas.drawRect(cx-eyeRegionWidth/2, cy-eyeRegionHeight/2,
-//                            cx+eyeRegionWidth/2, cy+eyeRegionHeight/2, paint);
-                    //canvas.drawCircle(cx, cy, 10, paint);
-                    int eye_region_left = (int)landmark.getPosition().x-eyeRegionWidth/2;
-                    int eye_region_top = (int)landmark.getPosition().y-eyeRegionHeight/2;
-
-                    mEyeBitmap = toGrayscale(
-                            createBitmap(mBitmap,
-                                    eye_region_left,
-                                    eye_region_top,
-                                    eyeRegionWidth, eyeRegionHeight));
-
-                    mEyeBitmap = createScaledBitmap(mEyeBitmap,
-                            eyeRegionWidth/mDownSampleScale,
-                            eyeRegionHeight/mDownSampleScale,
-                            true);
-
-                    iris_pixel = calculateEyeCenter(mEyeBitmap, mGradThresh, mDThresh);
-//                    if (mBitmapGradientMag != null)  canvas.drawBitmap(mBitmapGradientMag, 0, 0, paint);
-                    //canvas.drawBitmap(eyeBitmap, 0, 0, paint);
-                }
-            }
-            if (mEyeBitmap != null && DEBUG_MODE) {
+            if (mEyeBitmap != null && DEBUG_MODE)
+            {
                 Bitmap debugBitmap = createBitmap(mEyeBitmap.getWidth()-2, mEyeBitmap.getHeight()-2, Bitmap.Config.ARGB_8888);//BitmapFactory.decodeByteArray(mDebugArray, 0, mDebugArray.length);
                 debugBitmap.copyPixelsFromBuffer(IntBuffer.wrap(mDebugArray));
                 Bitmap resizedBitmap = Bitmap.createScaledBitmap(
@@ -400,10 +354,45 @@ public class MainActivity extends Activity {
                 int iris_y = iris_pixel/mEyeBitmap.getWidth()*mDownSampleScale*mUpSampleScale;
                 canvas.drawCircle(iris_x, iris_y, mDownSampleScale*mUpSampleScale*mDThresh, mBoxPaint);
             }
-            if (mEyeBitmap != null) {
-//                int iris_X = (-iris_pixel%mEyeBitmap.getWidth())*mDownSampleScale + cx + (int)scaleX((float)eyeRegionWidth/2);
-//                int iris_Y = (iris_pixel/mEyeBitmap.getWidth())*mDownSampleScale + cy - (int)scaleY((float)eyeRegionHeight/2);
-//                canvas.drawCircle(iris_X, iris_Y, mDThresh, mBoxPaint);
+
+            for (Landmark landmark : face.getLandmarks())
+            {
+                int landmark_type = landmark.getType();
+                if (landmark_type == Landmark.LEFT_EYE)
+                {
+                    cx = (int) translateX(landmark.getPosition().x);
+                    cy = (int) translateY(landmark.getPosition().y);
+                    Paint paint = new Paint();
+                    paint.setColor(Color.GREEN);
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(5);
+
+                    int eye_region_left = (int)landmark.getPosition().x-eyeRegionWidth/2;
+                    eye_region_left = abs(eye_region_left);
+                    int eye_region_top = (int)landmark.getPosition().y-eyeRegionHeight/2;
+                    eye_region_top = abs(eye_region_top);
+
+                    if(eye_region_top + eyeRegionHeight > mBitmap.getHeight())
+                    {
+                        eye_region_top = eye_region_top + eyeRegionHeight - mBitmap.getHeight();
+                    }
+
+                    mEyeBitmap = toGrayscale(
+                            createBitmap(mBitmap,
+                                    eye_region_left,
+                                    eye_region_top,
+                                    eyeRegionWidth, eyeRegionHeight));
+
+                    mEyeBitmap = createScaledBitmap(mEyeBitmap,
+                            eyeRegionWidth/mDownSampleScale,
+                            eyeRegionHeight/mDownSampleScale,
+                            true);
+
+                    iris_pixel = calculateEyeCenter(mEyeBitmap, mGradThresh, mDThresh);
+                }
+            }
+            if (mEyeBitmap != null)
+            {
                 Paint paint = new Paint();
                 paint.setColor(Color.GREEN);
                 paint.setStyle(Paint.Style.STROKE);
@@ -415,7 +404,7 @@ public class MainActivity extends Activity {
                 if (x_gaze > mLeftThreshold) { canvas.drawText("Left", 400, 200, paint); }
                 if (y_gaze > mUpThreshold) { canvas.drawText("Up", 400, 400, paint); }
                 if (y_gaze < mDownThreshold) { canvas.drawText("Down", 400, 400, paint); }
-                Log.e("EyePixelVector", "X: " + x_gaze + "  Y: " + y_gaze);
+                Log.d("Eyes Gaze", "X : " + x_gaze + ", Y : " + y_gaze);
             }
         }
 
@@ -474,7 +463,7 @@ public class MainActivity extends Activity {
                             if ((gradients[k][0] == 0 && gradients[k][1] == 0)) continue;
                             double d_i = k_w - i;
                             double d_j = k_h - j;
-                            if (Math.abs(d_i) > d_thresh || Math.abs(d_j) > d_thresh) continue;
+                            if (abs(d_i) > d_thresh || abs(d_j) > d_thresh) continue;
                             double mag = Math.sqrt(Math.pow(d_i, 2) + Math.pow(d_j, 2));
                             if (mag > d_thresh) continue;
                             mag = mag == 0 ? 1 : mag;
