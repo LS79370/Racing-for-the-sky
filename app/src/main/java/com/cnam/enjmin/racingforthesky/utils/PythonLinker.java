@@ -1,89 +1,38 @@
 package com.cnam.enjmin.racingforthesky.utils;
 
-import android.util.Log;
+import android.os.AsyncTask;
 
-import java.io.BufferedWriter;
-import java.io.DataInputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import com.cnam.enjmin.racingforthesky.MainActivity;
+
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
-public class PythonLinker implements Runnable
+public class PythonLinker extends AsyncTask<Void,Void,Void>
 {
-    private String ip1;
-    private int port1;
     private Socket socket;
-    private InetAddress inAdr;
-    private PrintWriter out;
-    private boolean stopWorker;
-    private DataInputStream inputStream;
-
-    public PythonLinker(String ip, int port)
-    {
-        ip1=ip;
-        port1=port;
-    }
 
     @Override
-    public void run()
-    {
+    protected Void doInBackground(Void... params){
         try
         {
-            inAdr = InetAddress.getByName(ip1);
-            socket = new Socket(inAdr,port1);
-            inputStream = new DataInputStream(socket.getInputStream());
-            send("query");
-            receive();
+            InetAddress inetAddress = InetAddress.getByName(MainActivity.IP);
+            socket = new java.net.Socket(inetAddress, MainActivity.PORT);
+            DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+            dataOutputStream.writeBytes(MainActivity.REQUEST);
+            dataOutputStream.close();
+            socket.close();
         }
-        catch(Exception e){}
-    }
-
-    public void send(String str)
-    {
-        try
+        catch (UnknownHostException e)
         {
-            out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())),true);
-            out.println(str);
-            //receive();
+            e.printStackTrace();
         }
-        catch(Exception e){}
-    }
-
-    /*public void receive()
-    {
-        stopWorker = false;
-        Thread workerThread = new Thread(new Runnable()
+        catch (IOException e)
         {
-            public void run()
-            {
-                while(!Thread.currentThread().isInterrupted()&&!stopWorker)
-                {
-                    try{
-                        int n = inputStream.available();
-                        if(n>0)
-                        {
-                            byte[] received = new byte[n];
-                            inputStream.read(received);
-                            String data = new String(received,"US-ASCII");
-                            h.post(new Runnable()
-                            {
-                                public void run()
-                                {
-                                    try{
-                                        Log.d("PythonLinker", "Hello world !");
-                                    }
-                                    catch(Exception x){}
-                                }
-                            });
-                        }
-                    }catch(Exception e)
-                    {
-                        stopWorker=true;
-                    }
-                }
-            }
-        });
-        workerThread.start();
-    }*/
+            e.printStackTrace();
+        }
+        return null;
+    }
 }
