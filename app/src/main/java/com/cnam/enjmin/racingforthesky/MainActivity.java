@@ -33,6 +33,7 @@ import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.cnam.enjmin.racingforthesky.utils.PermissionsManager;
 import com.cnam.enjmin.racingforthesky.utils.PythonLinker;
 import com.google.android.gms.vision.CameraSource;
 import com.google.android.gms.vision.Detector;
@@ -55,8 +56,6 @@ import static android.graphics.Bitmap.createScaledBitmap;
 import static java.lang.Math.abs;
 
 public class MainActivity extends Activity {
-
-    private static boolean DBG = BuildConfig.DEBUG; // provide normal log output only in debug version
 
     protected static FaceDetector faceDetector = null;
     protected static GazeDetector gazeDetector = null;
@@ -83,6 +82,8 @@ public class MainActivity extends Activity {
     protected int mLeftThreshold = 6;
     protected int mRightThreshold = -6;
 
+    private PermissionsManager permManager;
+
     public static String IP = "192.168.43.67";
     public static int PORT = 8090;
     public static String REQUEST = "n";
@@ -94,7 +95,8 @@ public class MainActivity extends Activity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         // and hide the window title.
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getPermissions();   // NOTE: can *not* assume we actually have permissions after this call
+        permManager = new PermissionsManager();
+        permManager.getPermissions(this);   // NOTE: can *not* assume we actually have permissions after this call
         this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
         setContentView(R.layout.activity_main);
@@ -130,7 +132,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (bCameraPermissionGranted && (mCameraSource != null) && (mPreview != null)) {
+        if (permManager.cameraPermissionGranted && (mCameraSource != null) && (mPreview != null)) {
             try {
                 mPreview.start(mCameraSource, mGraphicOverlay);
             } catch(IOException e) {
@@ -150,51 +152,12 @@ public class MainActivity extends Activity {
         System.loadLibrary("native-lib");
     }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    // For Android 6.0 (API Level 25)  permission requests
-
-    private static final int REQ_PERMISSION_THISAPP = 0; // unique code for permissions request
-    private static boolean bUseCameraFlag = true;               // we want to use the camera
-    private static boolean bCameraPermissionGranted = false;   // have CAMERA permission
-
-    private void getPermissions() {
-        String TAG = "getPermissions";
-        //if (DBG) Log.v(TAG, "in getPermissions()");
-        if (Build.VERSION.SDK_INT >= 23) {            // need to ask at runtime as of Android 6.0
-            String sPermissions[] = new String[2];    // space for possible permission strings
-            int nPermissions = 0;    // count of permissions to be asked for
-            if (bUseCameraFlag) {    // protection level: dangerous
-                if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
-                    bCameraPermissionGranted = true;
-                else sPermissions[nPermissions++] = Manifest.permission.CAMERA;
-            }
-            if (nPermissions > 0) {
-                //if (DBG) Log.d(TAG, "Need to ask for " + nPermissions + " permissions");
-                if (nPermissions < sPermissions.length)
-                    sPermissions = Arrays.copyOf(sPermissions, nPermissions);
-                if (DBG) {
-                    for (String sPermission : sPermissions)
-                    {
-                        //Log.w(TAG, sPermission);    // debugging only
-                    }
-                }
-                requestPermissions(sPermissions, REQ_PERMISSION_THISAPP);    // start the process
-            }
-        } else {    // in earlier API, permission is dealt with at install time, not run time
-            if (bUseCameraFlag) bCameraPermissionGranted = true;
-        }
-    }
-
-    //	Note: onRequestPermissionsResult happens *after* user has interacted with the permissions request
-    //  So, annoyingly, have to now (re-)do things that didn't happen in onCreate() because permissions were not there yet.
-
     @Override
     // overrides method in android.app.Activity
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         String TAG = "onRequestPermitResult";
         //if (DBG) Log.w(TAG, "in onRequestPermissionsResult(...) (" + requestCode + ")");
-        if (requestCode != REQ_PERMISSION_THISAPP) {    // check that this is a response to our request
+        if (requestCode != permManager.REQ_PERMISSION_THISAPP) {    // check that this is a response to our request
             //Log.e(TAG, "Unexpected requestCode " + requestCode);    // can this happen?
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
             return;
@@ -205,14 +168,10 @@ public class MainActivity extends Activity {
             //if (DBG) Log.w(TAG, "permission " + permissions[i] + " " + grantResults[i]);
             switch (permissions[i]) {
                 case Manifest.permission.CAMERA:
-                    if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
-                        if (DBG) Log.w(TAG, "CAMERA Permission granted (" + i + ")");
-                        bCameraPermissionGranted = true;
-                        // redo the setup in onResume(...) ?
-                    } else {
-                        bUseCameraFlag = false;
+                    if (!(grantResults[i] == PackageManager.PERMISSION_GRANTED))
+                    {
                         String str = "You must grant CAMERA permission to use the camera!";
-                        //Log.d(TAG, str);
+                        Log.d(TAG, str);
                     }
                     break;
             }
